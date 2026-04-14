@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spot It!</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Fredoka One', cursive;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  #stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+  }
+
+  h1 {
+    color: #ffe566;
+    font-size: clamp(28px, 6vw, 48px);
+    margin-bottom: 8px;
+    text-shadow: 0 3px 16px rgba(255,220,50,0.5);
+    letter-spacing: 2px;
+    z-index: 1;
+    animation: floatIn 0.5s ease;
+  }
+
+  #scoreboard {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 14px;
+    z-index: 1;
+    animation: floatIn 0.6s ease;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .score-box {
+    background: rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 8px 22px;
+    color: #fff;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.2);
+    min-width: 80px;
+  }
+
+  .score-label {
+    font-size: 11px;
+    opacity: 0.7;
+    font-family: 'Nunito', sans-serif;
+    letter-spacing: 1px;
+  }
+
+  .score-val {
+    font-size: 28px;
+  }
+
+  #message {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+    z-index: 1;
+    margin-bottom: 8px;
+    font-family: 'Nunito', sans-serif;
+    transition: opacity 0.3s;
+  }
+
+  #cards-area {
+    display: flex;
+    gap: clamp(24px, 6vw, 80px);
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    flex-wrap: wrap;
+  }
+
+  .card-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .card-label {
+    color: #aaa;
+    font-size: 13px;
+    font-family: 'Nunito', sans-serif;
+    letter-spacing: 1px;
+  }
+
+  .card {
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+    transition: box-shadow 0.3s;
+    cursor: default;
+  }
+
+  .card.face-down {
+    background: radial-gradient(circle at 40% 40%, #2d3561, #1a1f3c);
+    border: 5px solid #4a5290;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 2px 8px rgba(255,255,255,0.05);
+  }
+
+  .card.face-up {
+    background: radial-gradient(circle at 35% 35%, #fff9e6, #ffeaa0);
+    border: 5px solid #f0c040;
+    box-shadow: 0 8px 32px rgba(240,192,64,0.4), inset 0 2px 8px rgba(255,255,255,0.3);
+  }
+
+  .card-back-icon {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 64px;
+  }
+
+  .symbol {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    user-select: none;
+    transition: transform 0.15s ease;
+    z-index: 2;
+    line-height: 1;
+  }
+
+  .symbol.clickable {
+    cursor: pointer;
+  }
+
+  .symbol.clickable:hover {
+    transform: translate(-50%, -50%) scale(1.35) !important;
+    filter: drop-shadow(0 0 8px gold);
+  }
+
+  #lightning {
+    color: #ffe566;
+    font-size: clamp(28px, 5vw, 48px);
+    text-shadow: 0 0 20px gold;
+    z-index: 2;
+  }
+
+  #flip-btn {
+    margin-top: 24px;
+    padding: 14px 42px;
+    font-size: 18px;
+    font-family: 'Fredoka One', cursive;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 1;
+    letter-spacing: 1px;
+  }
+
+  #flip-btn.ready {
+    background: #ffe566;
+    color: #1a1f3c;
+    box-shadow: 0 4px 24px rgba(255,229,102,0.5);
+  }
+
+  #flip-btn.ready:hover {
+    background: #ffda44;
+    transform: scale(1.05);
+  }
+
+  #flip-btn.used {
+    background: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.35);
+    cursor: default;
+  }
+
+  #wrong-count {
+    margin-top: 10px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    font-family: 'Nunito', sans-serif;
+    z-index: 1;
+    min-height: 20px;
+  }
+
+  #instructions {
+    color: rgba(255,255,255,0.35);
+    font-size: 12px;
+    margin-top: 18px;
+    text-align: center;
+    max-width: 320px;
+    font-family: 'Nunito', sans-serif;
+    z-index: 1;
+    line-height: 1.6;
+  }
+
+  #game-over {
+    background: rgba(255,255,255,0.1);
+    border-radius: 24px;
+    padding: 40px 50px;
+    text-align: center;
+    z-index: 1;
+    border: 2px solid rgba(255,229,102,0.4);
+    backdrop-filter: blur(10px);
+    animation: pop 0.4s ease;
+    display: none;
+  }
+
+  #game-over h2 {
+    color: #ffe566;
+    font-size: 32px;
+    margin-bottom: 8px;
+  }
+
+  #game-over p {
+    color: #fff;
+    font-size: 20px;
+    font-family: 'Nunito', sans-serif;
+    margin-bottom: 8px;
+  }
+
+  #game-over .sub {
+    color: rgba(255,255,255,0.55);
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+
+  #restart-btn {
+    padding: 14px 40px;
+    font-size: 18px;
+    font-family: 'Fredoka One', cursive;
+    background: #ffe566;
+    color: #1a1f3c;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 4px 24px rgba(255,229,102,0.5);
+    transition: transform 0.15s;
+  }
+
+  #restart-btn:hover { transform: scale(1.05); }
+
+  @keyframes floatIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pop {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes pulseSymbol {
+    0% { transform: translate(-50%,-50%) scale(1); }
+    50% { transform: translate(-50%,-50%) scale(1.6); filter: brightness(2); }
+    100% { transform: translate(-50%,-50%) scale(1); }
+  }
+
+  @keyframes shakeBad {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  .shake { animation: shakeBad 0.4s ease !important; }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<h1>🔍 SPOT IT!</h1>
+
+<div id="scoreboard">
+  <div class="score-box">
+    <div class="score-label">SCORE</div>
+    <div class="score-val" id="score-display" style="color:#ffe566">0</div>
+  </div>
+  <div class="score-box">
+    <div class="score-label">STREAK</div>
+    <div class="score-val" id="streak-display" style="color:#7ec8e3">0</div>
+  </div>
+  <div class="score-box">
+    <div class="score-label">ROUND</div>
+    <div class="score-val" id="round-display" style="color:#b8f0a0">1</div>
+  </div>
+</div>
+
+<div id="message"></div>
+
+<div id="game-area">
+  <div id="cards-area">
+    <div class="card-wrap">
+      <div class="card-label">YOUR CARD</div>
+      <div class="card face-down" id="card1">
+        <div class="card-back-icon">🌀</div>
+      </div>
+    </div>
+    <div id="lightning">⚡</div>
+    <div class="card-wrap">
+      <div class="card-label">MATCH CARD</div>
+      <div class="card face-down" id="card2">
+        <div class="card-back-icon">🌀</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+    <button id="flip-btn" class="ready" onclick="flipCards()">🂠 Flip Cards</button>
+    <button id="skip-btn" onclick="skipCard()" style="display:none;padding:8px 24px;font-size:14px;font-family:'Fredoka One',cursive;background:rgba(255,100,100,0.2);color:rgba(255,180,180,0.9);border:1px solid rgba(255,100,100,0.3);border-radius:50px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,100,100,0.35)'" onmouseout="this.style.background='rgba(255,100,100,0.2)'">⏭ No Match? Skip</button>
+    <div id="wrong-count"></div>
+  </div>
+
+  <p id="instructions">Flip the cards, then tap the ONE symbol that appears on both.<br>3+ streak = bonus points! 🔥</p>
+</div>
+
+<div id="game-over">
+  <div style="font-size:56px;margin-bottom:12px">🏆</div>
+  <h2>Game Over!</h2>
+  <p>Final Score: <strong id="final-score" style="color:#7effa0;font-size:28px">0</strong></p>
+  <p class="sub" id="final-sub"></p>
+  <button id="restart-btn" onclick="restart()">🔄 Play Again</button>
+</div>
+
+<script>
+const ALL_SYMBOLS = [
+  "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯",
+  "🦁","🐮","🐸","🐵","🐔","🐧","🐦","🦆","🦅","🦉",
+  "🦇","🐺","🐗","🐴","🦄","🐝","🐛","🦋","🐌","🐞",
+  "🐜","🦟","🦗","🐢","🐍","🦎","🦖","🐙","🦑","🦀",
+  "🐡","🐠","🐟","🐬","🐳","🦈","🐊","🦓","🦍","🦧",
+  "🦬","🦣","🦤","🦦","🦥","🐿","🦔",
+]; // 57 total — exactly n*n+n+1 for n=7
+
+const ORDER = 7; // n=7: 8 symbols per card, 57 cards
+
+// 8 well-spread positions inside a circle card (percent of 260px)
+const POSITIONS = [
+  { x: 50, y: 15, r: -8,  s: 36 },
+  { x: 20, y: 32, r: 12,  s: 30 },
+  { x: 80, y: 32, r: -5,  s: 34 },
+  { x: 12, y: 58, r: 15,  s: 28 },
+  { x: 50, y: 55, r: -10, s: 38 },
+  { x: 88, y: 58, r: 6,   s: 26 },
+  { x: 28, y: 80, r: -12, s: 32 },
+  { x: 72, y: 80, r: 8,   s: 30 },
+];
+
+let deck = [];
+let cardIndex = 0;
+let score = 0;
+let streak = 0;
+let flipped = false;
+let wrongAttempts = 0;
+let totalPairs = 0;
+let msgTimer = null;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function generateDeck(symbolPool, n) {
+  // Correct Spot It deck via projective plane PG(2,n), n must be prime.
+  // Each card = one projective LINE. Each symbol = one projective POINT.
+  // Every two distinct lines share exactly 1 point => every 2 cards share 1 symbol.
+
+  function modInverse(a, p) {
+    // Fermat's little theorem: a^(p-1) = 1 mod p
+    let result = 1, base = a % p, exp = p - 2;
+    while (exp > 0) {
+      if (exp % 2 === 1) result = (result * base) % p;
+      base = (base * base) % p;
+      exp = Math.floor(exp / 2);
+    }
+    return result;
+  }
+
+  function pointToIdx(x, y, z) {
+    // Normalize projective point to canonical form, return unique index
+    if (x !== 0) {
+      const inv = modInverse(x, n);
+      const yy = (y * inv) % n;
+      const zz = (z * inv) % n;
+      return 1 + yy * n + zz; // 1 .. n^2
+    } else if (y !== 0) {
+      const inv = modInverse(y, n);
+      const zz = (z * inv) % n;
+      return n * n + 1 + zz; // n^2+1 .. n^2+n
+    } else {
+      return n * n + n + 1; // (0,0,1)
+    }
+  }
+
+  function getLinePoints(a, b, c) {
+    // All projective points (x:y:z) satisfying ax + by + cz = 0 (mod n)
+    const pts = new Set();
+    for (let y = 0; y < n; y++) {
+      for (let z = 0; z < n; z++) {
+        if ((a + b * y + c * z) % n === 0) pts.add(pointToIdx(1, y, z));
+      }
+    }
+    for (let z = 0; z < n; z++) {
+      if ((b + c * z) % n === 0) pts.add(pointToIdx(0, 1, z));
+    }
+    if (c % n === 0) pts.add(pointToIdx(0, 0, 1));
+    return [...pts];
+  }
+
+  // Enumerate all projective lines (same count as points: n^2+n+1)
+  const lineReps = [];
+  for (let b = 0; b < n; b++) for (let c = 0; c < n; c++) lineReps.push([1, b, c]);
+  for (let c = 0; c < n; c++) lineReps.push([0, 1, c]);
+  lineReps.push([0, 0, 1]);
+
+  const pool = symbolPool.slice(0, n * n + n + 1);
+  return lineReps.map(([a, b, c]) => getLinePoints(a, b, c).map(idx => pool[idx - 1]));
+}
+
+function findMatch(c1, c2) {
+  return c1.find(s => c2.includes(s));
+}
+
+function showMessage(text, type) {
+  clearTimeout(msgTimer);
+  const el = document.getElementById('message');
+  el.textContent = text;
+  el.style.color = type === 'good' ? '#7effa0' : '#ff7070';
+  el.style.textShadow = type === 'good' ? '0 0 12px #0f0' : '0 0 12px #f00';
+  el.style.opacity = 1;
+  msgTimer = setTimeout(() => { el.style.opacity = 0; }, 1800);
+}
+
+function updateScoreboard() {
+  document.getElementById('score-display').textContent = score;
+  const sd = document.getElementById('streak-display');
+  sd.textContent = (streak >= 3 ? '🔥' : '') + streak;
+  sd.style.color = streak >= 3 ? '#ff6b35' : '#7ec8e3';
+  const pairIndex = Math.floor(cardIndex / 2);
+  document.getElementById('round-display').textContent = `${pairIndex + 1}/${totalPairs}`;
+}
+
+function renderCard(el, symbols, clickable) {
+  el.innerHTML = '';
+  el.className = 'card face-up';
+  // Shuffle positions independently per card so layout varies
+  const shuffledPos = shuffle([...POSITIONS]);
+  // Only use as many positions as we have symbols (should be n+1 = 8)
+  symbols.forEach((sym, i) => {
+    const pos = shuffledPos[i % shuffledPos.length];
+    const div = document.createElement('div');
+    div.className = 'symbol' + (clickable ? ' clickable' : '');
+    div.textContent = sym;
+    div.style.left = pos.x + '%';
+    div.style.top = pos.y + '%';
+    div.style.fontSize = pos.s + 'px';
+    div.style.transform = `translate(-50%, -50%) rotate(${pos.r}deg)`;
+    if (clickable) {
+      div.addEventListener('click', () => handleSymbolClick(sym));
+    }
+    el.appendChild(div);
+  });
+}
+
+function renderFaceDown(el) {
+  el.innerHTML = '<div class="card-back-icon">🌀</div>';
+  el.className = 'card face-down';
+}
+
+function flipCards() {
+  if (flipped) return;
+  flipped = true;
+  const btn = document.getElementById('flip-btn');
+  btn.className = 'used';
+  btn.textContent = '🔍 Find the match!';
+  document.getElementById('skip-btn').style.display = 'block';
+
+  const c1 = deck[cardIndex];
+  const c2 = deck[cardIndex + 1];
+  renderCard(document.getElementById('card1'), c1, true);
+  renderCard(document.getElementById('card2'), c2, true);
+}
+
+function skipCard() {
+  if (!flipped) return;
+  showMessage('⏭ Skipped! No points.', 'bad');
+  const next = cardIndex + 2;
+  setTimeout(() => {
+    if (next + 1 >= deck.length) {
+      endGame();
+    } else {
+      cardIndex = next;
+      flipped = false;
+      wrongAttempts = 0;
+      streak = 0;
+      document.getElementById('wrong-count').textContent = '';
+      document.getElementById('skip-btn').style.display = 'none';
+      renderFaceDown(document.getElementById('card1'));
+      renderFaceDown(document.getElementById('card2'));
+      const btn = document.getElementById('flip-btn');
+      btn.className = 'ready';
+      btn.textContent = '🂠 Flip Cards';
+      updateScoreboard();
+    }
+  }, 600);
+}
+
+function handleSymbolClick(sym) {
+  if (!flipped) return;
+  const c1 = deck[cardIndex];
+  const c2 = deck[cardIndex + 1];
+  const match = findMatch(c1, c2);
+
+  if (sym === match) {
+    // Correct!
+    const bonus = streak >= 2 ? 2 : 1;
+    score += bonus;
+    streak++;
+    showMessage(streak >= 3 ? `🔥 Streak! +${bonus}` : '✅ Spot on!', 'good');
+
+    // Pulse the symbol on both cards
+    document.querySelectorAll('.symbol').forEach(el => {
+      if (el.textContent === sym) {
+        el.style.animation = 'pulseSymbol 0.4s ease';
+      }
+    });
+
+    setTimeout(() => {
+      const next = cardIndex + 2;
+      if (next + 1 >= deck.length) {
+        endGame();
+      } else {
+        cardIndex = next;
+        flipped = false;
+        wrongAttempts = 0;
+        document.getElementById('wrong-count').textContent = '';
+        renderFaceDown(document.getElementById('card1'));
+        renderFaceDown(document.getElementById('card2'));
+        const btn = document.getElementById('flip-btn');
+        btn.className = 'ready';
+        btn.textContent = '🂠 Flip Cards';
+        updateScoreboard();
+      }
+    }, 650);
+  } else {
+    // Wrong
+    streak = 0;
+    wrongAttempts++;
+    showMessage('❌ Not a match!', 'bad');
+    const card1El = document.getElementById('card1');
+    card1El.classList.add('shake');
+    setTimeout(() => card1El.classList.remove('shake'), 420);
+    document.getElementById('wrong-count').textContent =
+      `${wrongAttempts} wrong tap${wrongAttempts > 1 ? 's' : ''} this round`;
+    updateScoreboard();
+  }
+}
+
+function endGame() {
+  document.getElementById('game-area').style.display = 'none';
+  const go = document.getElementById('game-over');
+  go.style.display = 'block';
+  document.getElementById('final-score').textContent = score;
+  const pairs = Math.floor(cardIndex / 2) + 1;
+  document.getElementById('final-sub').textContent = `You spotted ${pairs} pair${pairs !== 1 ? 's' : ''}!`;
+}
+
+function restart() {
+  score = 0;
+  streak = 0;
+  cardIndex = 0;
+  flipped = false;
+  wrongAttempts = 0;
+
+  const shuffledSymbols = shuffle(ALL_SYMBOLS);
+  deck = shuffle(generateDeck(shuffledSymbols, ORDER));
+  totalPairs = Math.floor(deck.length / 2);
+
+  renderFaceDown(document.getElementById('card1'));
+  renderFaceDown(document.getElementById('card2'));
+
+  const btn = document.getElementById('flip-btn');
+  btn.className = 'ready';
+  btn.textContent = '🂠 Flip Cards';
+
+  document.getElementById('wrong-count').textContent = '';
+  document.getElementById('message').textContent = '';
+  document.getElementById('skip-btn').style.display = 'none';
+  document.getElementById('game-area').style.display = 'block';
+  document.getElementById('game-over').style.display = 'none';
+
+  updateScoreboard();
+}
+
+// Generate stars
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 35; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  const size = Math.random() * 3 + 1;
+  s.style.cssText = `
+    width:${size}px; height:${size}px;
+    top:${Math.random()*100}%; left:${Math.random()*100}%;
+    opacity:${(Math.random()*0.5+0.2).toFixed(2)};
+  `;
+  starsEl.appendChild(s);
+}
+
+// Init
+restart();
+</script>
+</body>
+</html>
